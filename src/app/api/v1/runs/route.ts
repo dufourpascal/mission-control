@@ -17,6 +17,8 @@ export async function GET(request: NextRequest) {
 
     const result = listRuns({
       workspaceId,
+      automationOnly: searchParams.get('automation') === '1',
+      summaries: searchParams.get('summaries') === '1',
       agentId: searchParams.get('agent_id') ?? undefined,
       status: searchParams.get('status') ?? undefined,
       since: searchParams.get('since') ?? undefined,

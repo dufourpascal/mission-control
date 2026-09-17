@@ -288,6 +288,8 @@ export function listRuns(opts: {
   taskId?: string
   limit?: number
   offset?: number
+  automationOnly?: boolean
+  summaries?: boolean
 }): { runs: AgentRun[]; total: number } {
   const db = getDatabase()
   const wsId = opts.workspaceId ?? 1
@@ -296,6 +298,8 @@ export function listRuns(opts: {
 
   let where = 'WHERE workspace_id = ?'
   const params: unknown[] = [wsId]
+
+  if (opts.automationOnly) where += " AND EXISTS (SELECT 1 FROM json_each(runs.tags) WHERE value = 'automation')"
 
   if (opts.agentId) {
     where += ' AND agent_id = ?'
@@ -315,10 +319,18 @@ export function listRuns(opts: {
   }
 
   const total = (db.prepare(`SELECT COUNT(*) as c FROM runs ${where}`).get(...params) as any).c
-  const rows = db.prepare(`SELECT * FROM runs ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`)
+  // Keep inputs and captured events out of the frequently refreshed history list.
+  const columns = opts.summaries
+    ? `id, agent_id, agent_name, model, provider, runtime, status, outcome,
+       started_at, ended_at, duration_ms, task_id, workspace_id,
+       cost_input_tokens, cost_output_tokens,
+       json_object('title', json_extract(metadata, '$.title'), 'kind', json_extract(metadata, '$.kind')) AS metadata`
+    : '*'
+  const rows = db.prepare(`SELECT ${columns} FROM runs ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`)
     .all(...params, limit, offset) as any[]
 
-  return { runs: rows.map(rowToAgentRun), total }
+  const runs = rows.map(rowToAgentRun)
+  return { runs, total }
 }
 
 export function getRunProvenance(id: string, workspaceId?: number): Provenance | null {
