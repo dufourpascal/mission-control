@@ -16,7 +16,8 @@ CREATE TABLE IF NOT EXISTS tasks (
     estimated_hours INTEGER,
     actual_hours INTEGER,
     tags TEXT, -- JSON array of tags
-    metadata TEXT -- JSON for additional data
+    metadata TEXT, -- JSON for additional data
+    archived_at INTEGER -- Unix timestamp for tasks hidden from the board
 );
 
 -- Agents Table - Squad management

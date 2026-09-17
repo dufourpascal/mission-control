@@ -143,6 +143,46 @@ test.describe('Tasks CRUD', () => {
     expect(body.limit).toBe(2)
   })
 
+  test('archived completed tasks leave the active board and can be restored', async ({ request }) => {
+    const { id } = await createTestTask(request, { status: 'done' })
+    cleanup.push(id)
+
+    const archiveRes = await request.put(`/api/tasks/${id}`, {
+      headers: API_KEY_HEADER,
+      data: { archived_at: Math.floor(Date.now() / 1000) },
+    })
+    expect(archiveRes.status()).toBe(200)
+
+    const activeRes = await request.get('/api/tasks?status=done&limit=200', { headers: API_KEY_HEADER })
+    const activeBody = await activeRes.json()
+    expect(activeBody.tasks.some((task: { id: number }) => task.id === id)).toBe(false)
+
+    const archivedRes = await request.get('/api/tasks?archived=true&limit=200', { headers: API_KEY_HEADER })
+    const archivedBody = await archivedRes.json()
+    expect(archivedBody.tasks.some((task: { id: number }) => task.id === id)).toBe(true)
+
+    const restoreRes = await request.put(`/api/tasks/${id}`, {
+      headers: API_KEY_HEADER,
+      data: { archived_at: null },
+    })
+    expect(restoreRes.status()).toBe(200)
+
+    const restoredRes = await request.get('/api/tasks?status=done&limit=200', { headers: API_KEY_HEADER })
+    const restoredBody = await restoredRes.json()
+    expect(restoredBody.tasks.some((task: { id: number }) => task.id === id)).toBe(true)
+  })
+
+  test('PUT rejects archiving an unfinished task', async ({ request }) => {
+    const { id } = await createTestTask(request)
+    cleanup.push(id)
+
+    const res = await request.put(`/api/tasks/${id}`, {
+      headers: API_KEY_HEADER,
+      data: { archived_at: Math.floor(Date.now() / 1000) },
+    })
+    expect(res.status()).toBe(400)
+  })
+
   // ── GET /api/tasks/[id] ──────────────────────
 
   test('GET single returns task by id', async ({ request }) => {

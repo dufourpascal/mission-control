@@ -35,6 +35,7 @@ interface Task {
   actual_hours?: number
   error_message?: string
   resolution?: string
+  archived_at?: number | null
   tags?: string[]
   metadata?: any
   aegisApproved?: boolean
@@ -410,6 +411,7 @@ export function TaskBoardPanel() {
   const [draggedTask, setDraggedTask] = useState<Task | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showProjectManager, setShowProjectManager] = useState(false)
+  const [showArchived, setShowArchived] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [showSpawnForm, setShowSpawnForm] = useState(false)
   const [spawnFormData, setSpawnFormData] = useState<SpawnFormData>({
@@ -455,6 +457,9 @@ export function TaskBoardPanel() {
       const tasksQuery = new URLSearchParams()
       if (projectFilter !== 'all') {
         tasksQuery.set('project_id', projectFilter)
+      }
+      if (showArchived) {
+        tasksQuery.set('archived', 'true')
       }
       const tasksUrl = tasksQuery.toString() ? `/api/tasks?${tasksQuery.toString()}` : '/api/tasks'
 
@@ -505,7 +510,7 @@ export function TaskBoardPanel() {
     } finally {
       setLoading(false)
     }
-  }, [projectFilter, storeSetTasks])
+  }, [projectFilter, showArchived, storeSetTasks])
 
   useEffect(() => {
     fetchData()
@@ -564,6 +569,24 @@ export function TaskBoardPanel() {
     })
     return acc
   }, {} as Record<string, Task[]>)
+  const visibleStatusColumns = showArchived
+    ? statusColumns.filter(column => column.key === 'done')
+    : statusColumns
+
+  const setTaskArchived = useCallback(async (task: Task, archived: boolean) => {
+    try {
+      setError(null)
+      await apiFetch(`/api/tasks/${task.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ archived_at: archived ? Math.floor(Date.now() / 1000) : null }),
+      })
+      await fetchData()
+      return true
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update archive')
+      return false
+    }
+  }, [fetchData])
 
   // Drag and drop handlers
   const handleDragStart = (e: React.DragEvent, task: Task) => {
@@ -824,6 +847,12 @@ export function TaskBoardPanel() {
           </div>
         </div>
         <div className="flex gap-2">
+          <Button
+            variant={showArchived ? 'secondary' : 'outline'}
+            onClick={() => setShowArchived(value => !value)}
+          >
+            {showArchived ? t('activeTasks') : t('showArchived')}
+          </Button>
           <Button variant="outline" onClick={() => setShowProjectManager(true)}>
             {t('projects')}
           </Button>
@@ -939,7 +968,7 @@ export function TaskBoardPanel() {
 
       {/* Kanban Board */}
       <div className="flex-1 min-h-0 flex gap-4 p-4 overflow-x-auto" role="region" aria-label={t('taskBoard')}>
-        {statusColumns.map(column => (
+        {visibleStatusColumns.map(column => (
           <div
             key={column.key}
             role="region"
@@ -963,7 +992,7 @@ export function TaskBoardPanel() {
               {tasksByStatus[column.key]?.map(task => (
                 <div
                   key={task.id}
-                  draggable
+                  draggable={!showArchived}
                   role="button"
                   tabIndex={0}
                   aria-label={`${task.title}, ${task.priority} priority, ${task.status}`}
@@ -1047,6 +1076,11 @@ export function TaskBoardPanel() {
                               Aegis
                             </span>
                           )}
+                          {task.archived_at && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-500/15 text-zinc-400 border border-zinc-500/20">
+                              {t('archived')}
+                            </span>
+                          )}
                           {detectAwaitingOwner(task) && (
                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-400 border border-orange-500/30 font-mono">
                               {t('colAwaitingOwner')}
@@ -1086,6 +1120,18 @@ export function TaskBoardPanel() {
                       )}
                       {task.status !== 'done' && (
                         <DunkItButton taskId={task.id} onDunked={() => fetchData()} />
+                      )}
+                      {task.status === 'done' && (
+                        <Button
+                          variant="ghost"
+                          size="xs"
+                          onClick={async (event) => {
+                            event.stopPropagation()
+                            await setTaskArchived(task, !task.archived_at)
+                          }}
+                        >
+                          {task.archived_at ? t('restore') : t('archive')}
+                        </Button>
                       )}
                       <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
                         task.priority === 'critical' ? 'bg-red-500/20 text-red-400' :
@@ -1161,6 +1207,7 @@ export function TaskBoardPanel() {
             updateTaskUrl(null)
           }}
           onUpdate={fetchData}
+          onArchive={(archived) => setTaskArchived(selectedTask, archived)}
           onEdit={(taskToEdit) => {
             setEditingTask(taskToEdit)
             setSelectedTask(null)
@@ -1208,6 +1255,7 @@ function TaskDetailModal({
   projects,
   onClose,
   onUpdate,
+  onArchive,
   onEdit,
   onDelete
 }: {
@@ -1216,6 +1264,7 @@ function TaskDetailModal({
   projects: Project[]
   onClose: () => void
   onUpdate: () => void
+  onArchive: (archived: boolean) => Promise<boolean>
   onEdit: (task: Task) => void
   onDelete: () => void
 }) {
@@ -1472,6 +1521,17 @@ function TaskDetailModal({
               <h3 id="task-detail-title" className="text-lg font-semibold text-foreground leading-tight">{task.title}</h3>
             </div>
             <div className="flex items-center gap-1 shrink-0">
+              {(task.status === 'done' || task.archived_at) && (
+                <Button
+                  variant="outline"
+                  size="xs"
+                  onClick={async () => {
+                    if (await onArchive(!task.archived_at)) onClose()
+                  }}
+                >
+                  {task.archived_at ? t('restore') : t('archive')}
+                </Button>
+              )}
               <Button variant="ghost" size="icon-sm" onClick={() => onEdit(task)} className="text-muted-foreground hover:text-foreground" aria-label={t('edit')}>
                 <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M11.5 1.5l3 3-9 9H2.5v-3z" /><path d="M9.5 3.5l3 3" /></svg>
               </Button>

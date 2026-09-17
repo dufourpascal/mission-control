@@ -1550,6 +1550,16 @@ const migrations: Migration[] = [
         db.exec(`ALTER TABLE agents ADD COLUMN claude_base_session_created_at TEXT DEFAULT NULL`)
       }
     }
+  },
+  {
+    id: '056_task_archive',
+    up: (db) => {
+      const cols = db.prepare(`PRAGMA table_info(tasks)`).all() as Array<{ name: string }>
+      if (!cols.some(c => c.name === 'archived_at')) {
+        db.exec(`ALTER TABLE tasks ADD COLUMN archived_at INTEGER`)
+      }
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_tasks_workspace_archived ON tasks(workspace_id, archived_at)`)
+    }
   }
 ]
 

@@ -151,6 +151,7 @@ export async function PUT(
       feedback_notes,
       retry_count,
       completed_at,
+      archived_at,
       tags,
       metadata
     } = body;
@@ -278,6 +279,17 @@ export async function PUT(
       fieldsToUpdate.push('completed_at = ?');
       updateParams.push(now);
     }
+    if (archived_at !== undefined) {
+      const resultingStatus = normalizedStatus ?? currentTask.status
+      if (archived_at !== null && resultingStatus !== 'done') {
+        return NextResponse.json(
+          { error: 'Only completed tasks can be archived.' },
+          { status: 400 }
+        )
+      }
+      fieldsToUpdate.push('archived_at = ?');
+      updateParams.push(archived_at);
+    }
     if (tags !== undefined) {
       fieldsToUpdate.push('tags = ?');
       updateParams.push(JSON.stringify(tags));
@@ -324,6 +336,9 @@ export async function PUT(
           workspaceId
         );
       }
+    }
+    if (archived_at !== undefined && archived_at !== currentTask.archived_at) {
+      changes.push(archived_at === null ? 'restored from archive' : 'archived')
     }
     
     if (assigned_to !== undefined && assigned_to !== currentTask.assigned_to) {
