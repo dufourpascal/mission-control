@@ -249,6 +249,13 @@ if (!fs.existsSync(buildIdPath)) {
 
 const standaloneServerPath = findStandaloneServer(repoRoot)
 
+// Standalone builds omit browser assets; include them before running UI tests.
+if (standaloneServerPath) {
+  const standaloneDir = path.dirname(standaloneServerPath)
+  fs.cpSync(path.join(repoRoot, '.next', 'static'), path.join(standaloneDir, '.next', 'static'), { recursive: true })
+  fs.cpSync(path.join(repoRoot, 'public'), path.join(standaloneDir, 'public'), { recursive: true })
+}
+
 app = standaloneServerPath && fs.existsSync(standaloneServerPath)
   ? spawn('node', [standaloneServerPath], {
       cwd: repoRoot,

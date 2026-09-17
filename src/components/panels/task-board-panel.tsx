@@ -425,6 +425,7 @@ export function TaskBoardPanel() {
   const [gnapSyncing, setGnapSyncing] = useState(false)
   const isLocal = dashboardMode === 'local'
   const dragCounter = useRef(0)
+  const dismissedTaskId = useRef<number | null>(null)
   const selectedTaskIdFromUrl = Number.parseInt(searchParams.get('taskId') || '', 10)
 
   const updateTaskUrl = useCallback((taskId: number | null, mode: 'push' | 'replace' = 'push') => {
@@ -444,10 +445,10 @@ export function TaskBoardPanel() {
   }, [pathname, router, searchParams])
 
   // Augment store tasks with aegisApproved flag (computed, not stored)
-  const tasks: Task[] = storeTasks.map(t => ({
+  const tasks: Task[] = useMemo(() => storeTasks.map(t => ({
     ...t,
     aegisApproved: Boolean(aegisMap[t.id])
-  }))
+  })), [aegisMap, storeTasks])
 
   // Fetch tasks, agents, and projects
   const fetchData = useCallback(async () => {
@@ -540,9 +541,12 @@ export function TaskBoardPanel() {
 
   useEffect(() => {
     if (!Number.isFinite(selectedTaskIdFromUrl)) {
+      dismissedTaskId.current = null
       if (selectedTask) setSelectedTask(null)
       return
     }
+
+    if (dismissedTaskId.current === selectedTaskIdFromUrl) return
 
     const match = tasks.find((task) => task.id === selectedTaskIdFromUrl)
     if (match) {
@@ -553,10 +557,15 @@ export function TaskBoardPanel() {
     }
 
     if (!loading) {
-      setError(`Task #${selectedTaskIdFromUrl} not found in current workspace`)
-      setSelectedTask(null)
+      if (selectedTask) {
+        dismissedTaskId.current = selectedTaskIdFromUrl
+        setSelectedTask(null)
+        updateTaskUrl(null, 'replace')
+      } else {
+        setError(`Task #${selectedTaskIdFromUrl} not found in current workspace`)
+      }
     }
-  }, [loading, selectedTask, selectedTaskIdFromUrl, setSelectedTask, tasks])
+  }, [loading, selectedTask, selectedTaskIdFromUrl, setSelectedTask, tasks, updateTaskUrl])
 
   // Poll as SSE fallback — pauses when SSE is delivering events
   useSmartPoll(fetchData, 30000, { pauseWhenSseConnected: true })
@@ -998,12 +1007,14 @@ export function TaskBoardPanel() {
                   aria-label={`${task.title}, ${task.priority} priority, ${task.status}`}
                   onDragStart={(e) => handleDragStart(e, task)}
                   onClick={() => {
+                    dismissedTaskId.current = null
                     setSelectedTask(task)
                     updateTaskUrl(task.id)
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault()
+                      dismissedTaskId.current = null
                       setSelectedTask(task)
                       updateTaskUrl(task.id)
                     }
@@ -1203,12 +1214,14 @@ export function TaskBoardPanel() {
           agents={agents}
           projects={projects}
           onClose={() => {
+            dismissedTaskId.current = selectedTask.id
             setSelectedTask(null)
-            updateTaskUrl(null)
+            updateTaskUrl(null, 'replace')
           }}
           onUpdate={fetchData}
           onArchive={(archived) => setTaskArchived(selectedTask, archived)}
           onEdit={(taskToEdit) => {
+            dismissedTaskId.current = taskToEdit.id
             setEditingTask(taskToEdit)
             setSelectedTask(null)
             updateTaskUrl(null, 'replace')
