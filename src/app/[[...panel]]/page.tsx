@@ -7,6 +7,7 @@ import { HeaderBar } from '@/components/layout/header-bar'
 import { LiveFeed } from '@/components/layout/live-feed'
 import { Dashboard } from '@/components/dashboard/dashboard'
 import { LogViewerPanel } from '@/components/panels/log-viewer-panel'
+import { AutomationActivityPanel } from '@/components/panels/automation-activity-panel'
 import { CronManagementPanel } from '@/components/panels/cron-management-panel'
 import { MemoryBrowserPanel } from '@/components/panels/memory-browser-panel'
 import { CostTrackerPanel } from '@/components/panels/cost-tracker-panel'
@@ -517,7 +518,7 @@ export default function Home() {
 }
 
 const ESSENTIAL_PANELS = new Set([
-  'overview', 'agents', 'tasks', 'chat', 'activity', 'logs', 'settings',
+  'overview', 'agents', 'tasks', 'chat', 'activity', 'logs', 'settings', 'automations',
 ])
 
 function ContentRouter({ tab }: { tab: string }) {
@@ -587,6 +588,8 @@ function ContentRouter({ tab }: { tab: string }) {
       return <ChatPagePanel />
     case 'logs':
       return <LogViewerPanel />
+    case 'automations':
+      return <AutomationActivityPanel />
     case 'cron':
       return <CronManagementPanel />
     case 'memory':

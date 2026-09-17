@@ -98,6 +98,358 @@
     }
   ],
   "paths": {
+    "/api/automations": {
+      "get": {
+        "tags": [
+          "Agents"
+        ],
+        "summary": "Get local CRM worker status or paginated queue",
+        "description": "Viewer access. Results remain available through the runs API when the worker is offline.",
+        "parameters": [
+          {
+            "name": "action",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "status",
+                "jobs"
+              ]
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Request succeeded"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role"
+          },
+          "503": {
+            "description": "Worker unavailable"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Agents"
+        ],
+        "summary": "Control local CRM automation execution",
+        "description": "Operator access. Run checks pending work. Pause stops new claims after the active item. Resume continues processing. Retry requeues a failed item. These controls do not approve CRM decisions.",
+        "parameters": [
+          {
+            "name": "action",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "run",
+                "pause",
+                "resume",
+                "retry"
+              ]
+            }
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Request succeeded"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role"
+          },
+          "503": {
+            "description": "Worker unavailable"
+          }
+        }
+      }
+    },
+    "/api/automations/heartbeat": {
+      "post": {
+        "tags": [
+          "Agents"
+        ],
+        "summary": "Register automation triggers and worker health",
+        "description": "Operator access. Up to 10 logical agents per heartbeat.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "agents"
+                ],
+                "properties": {
+                  "agents": {
+                    "type": "array",
+                    "maxItems": 10,
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "name",
+                        "trigger",
+                        "busy",
+                        "enabled"
+                      ],
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 100
+                        },
+                        "trigger": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "busy": {
+                          "type": "boolean"
+                        },
+                        "enabled": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Request succeeded"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role"
+          },
+          "503": {
+            "description": "Worker unavailable"
+          }
+        }
+      }
+    },
+    "/api/automations/report": {
+      "post": {
+        "tags": [
+          "Agents"
+        ],
+        "summary": "Record an automation run and group completed outcomes in the inbox",
+        "description": "Operator access. Reports are idempotent by run UUID. Terminal outcomes cannot be replaced by delayed progress. Groups Done summaries by automation and Zurich date; archived summaries stay unchanged. Payload limit 2 MB.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "run"
+                ],
+                "properties": {
+                  "run": {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "agent_id",
+                      "agent_name",
+                      "status",
+                      "started_at",
+                      "steps",
+                      "cost",
+                      "metadata"
+                    ],
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "agent_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "agent_name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "running",
+                          "completed",
+                          "failed"
+                        ]
+                      },
+                      "started_at": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "ended_at": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "outcome": {
+                        "type": "string",
+                        "enum": [
+                          "success",
+                          "failed",
+                          "partial",
+                          "abandoned"
+                        ]
+                      },
+                      "duration_ms": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "error": {
+                        "type": "string",
+                        "maxLength": 8000
+                      },
+                      "trigger": {
+                        "type": "string",
+                        "enum": [
+                          "queue",
+                          "cron",
+                          "manual"
+                        ]
+                      },
+                      "steps": {
+                        "type": "array",
+                        "maxItems": 150,
+                        "items": {
+                          "type": "object",
+                          "required": [
+                            "id",
+                            "type",
+                            "started_at",
+                            "output_preview",
+                            "success"
+                          ],
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "message",
+                                "reasoning",
+                                "tool_result",
+                                "error"
+                              ]
+                            },
+                            "started_at": {
+                              "type": "string"
+                            },
+                            "output_preview": {
+                              "type": "string",
+                              "maxLength": 9000
+                            },
+                            "success": {
+                              "type": "boolean"
+                            }
+                          }
+                        }
+                      },
+                      "cost": {
+                        "type": "object",
+                        "required": [
+                          "input_tokens",
+                          "output_tokens"
+                        ],
+                        "properties": {
+                          "input_tokens": {
+                            "type": "number",
+                            "minimum": 0
+                          },
+                          "output_tokens": {
+                            "type": "number",
+                            "minimum": 0
+                          },
+                          "cache_read_tokens": {
+                            "type": "number",
+                            "minimum": 0
+                          }
+                        }
+                      },
+                      "metadata": {
+                        "type": "object",
+                        "additionalProperties": true
+                      },
+                      "model": {
+                        "type": "string",
+                        "maxLength": 100
+                      },
+                      "runtime": {
+                        "type": "string",
+                        "maxLength": 100
+                      },
+                      "provider": {
+                        "type": "string",
+                        "maxLength": 100
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Request succeeded"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role"
+          },
+          "503": {
+            "description": "Worker unavailable"
+          },
+          "413": {
+            "description": "Report too large"
+          }
+        }
+      }
+    },
     "/api/activities": {
       "get": {
         "tags": [

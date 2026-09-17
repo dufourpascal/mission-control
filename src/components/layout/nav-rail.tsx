@@ -56,6 +56,7 @@ const navGroups: NavGroup[] = [
     id: 'automate',
     label: 'AUTOMATE',
     items: [
+      { id: 'automations', label: 'Automations', icon: <CronIcon />, priority: false, essential: true },
       { id: 'cron', label: 'Cron', icon: <CronIcon />, priority: false },
       { id: 'webhooks', label: 'Webhooks', icon: <WebhookIcon />, priority: false },
       { id: 'alerts', label: 'Alerts', icon: <AlertIcon />, priority: false },
