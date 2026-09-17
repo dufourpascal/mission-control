@@ -210,6 +210,7 @@ export interface Task {
   feedback_notes?: string;
   retry_count?: number;
   completed_at?: number;
+  archived_at?: number | null;
   tags?: string; // JSON string
   metadata?: string; // JSON string
   workspace_id: number;

@@ -54,6 +54,7 @@ const taskFields = {
   feedback_notes: z.string().max(5000),
   retry_count: z.number().int().min(0),
   completed_at: z.number().int().min(0).max(4102444800),
+  archived_at: z.number().int().min(0).max(4102444800).nullable(),
   tags: z.array(z.string().min(1).max(100)).max(50),
   metadata: taskMetadataSchema,
 }
@@ -99,6 +100,7 @@ export const updateTaskSchema = z.object({
   feedback_notes: taskFields.feedback_notes.optional(),
   retry_count: taskFields.retry_count.optional(),
   completed_at: taskFields.completed_at.optional(),
+  archived_at: taskFields.archived_at.optional(),
   tags: taskFields.tags.optional(),
   metadata: taskFields.metadata.optional(),
 })

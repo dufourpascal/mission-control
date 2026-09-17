@@ -62,7 +62,7 @@ function hasAegisApproval(db: ReturnType<typeof getDatabase>, taskId: number, wo
 
 /**
  * GET /api/tasks - List all tasks with optional filtering
- * Query params: status, assigned_to, priority, project_id, limit, offset
+ * Query params: status, assigned_to, priority, project_id, archived, limit, offset
  */
 export async function GET(request: NextRequest) {
   const auth = requireRole(request, 'viewer');
@@ -79,6 +79,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status');
     const assigned_to = searchParams.get('assigned_to');
     const priority = searchParams.get('priority');
+    const archived = searchParams.get('archived') === 'true';
     const projectIdParam = Number.parseInt(searchParams.get('project_id') || '', 10);
     const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 200);
     const offset = parseInt(searchParams.get('offset') || '0');
@@ -99,6 +100,8 @@ export async function GET(request: NextRequest) {
       WHERE t.workspace_id = ?
     `;
     const params: any[] = [workspaceId];
+
+    query += archived ? ' AND t.archived_at IS NOT NULL' : ' AND t.archived_at IS NULL';
     
     if (status) {
       query += ' AND t.status = ?';
@@ -140,6 +143,7 @@ export async function GET(request: NextRequest) {
     // Get total count for pagination
     let countQuery = 'SELECT COUNT(*) as total FROM tasks WHERE workspace_id = ?';
     const countParams: any[] = [workspaceId];
+    countQuery += archived ? ' AND archived_at IS NOT NULL' : ' AND archived_at IS NULL';
     if (status) {
       countQuery += ' AND status = ?';
       countParams.push(status);

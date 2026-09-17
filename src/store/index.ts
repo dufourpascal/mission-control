@@ -126,6 +126,7 @@ export interface Task {
   feedback_notes?: string
   retry_count?: number
   completed_at?: number
+  archived_at?: number | null
   tags?: string[]
   metadata?: JsonValue
   github_issue_number?: number
